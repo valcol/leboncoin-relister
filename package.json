@@ -1,7 +1,7 @@
 {
   "name": "lbc-relister",
-  "version": "7.1.0",
-  "description": "Extension Chrome pour relister rapidement vos annonces sur leboncoin.fr",
+  "version": "1.0.0",
+  "description": "Chrome extension to quickly relist your ads on leboncoin.fr",
   "type": "module",
   "scripts": {
     "build": "cross-env NODE_ENV=production rollup -c",
