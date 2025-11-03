@@ -1,5 +1,7 @@
 # 🔄 LBC ReLister
 
+**English | [Français](README.fr.md)**
+
 A Chrome extension to quickly relist your ads on leboncoin.fr.
 
 ## 🚀 Installation
