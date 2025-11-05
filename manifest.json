@@ -13,7 +13,7 @@
     "https://*.leboncoin.fr/*"
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "dist/popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "48": "icons/icon-48.png",
@@ -23,7 +23,7 @@
   "content_scripts": [
     {
       "matches": ["https://*.leboncoin.fr/*"],
-      "js": ["main.js"],
+      "js": ["dist/main.js"],
       "run_at": "document_start",
       "world": "MAIN"
     }

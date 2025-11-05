@@ -4,6 +4,8 @@
 
 A Chrome extension to quickly relist your ads on leboncoin.fr.
 
+![Preview](preview.png)
+
 ## 🚀 Installation
 
 1. Clone this repository or download it as a ZIP

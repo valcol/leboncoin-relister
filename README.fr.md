@@ -4,6 +4,8 @@
 
 Une extension Chrome pour republier rapidement vos annonces sur leboncoin.fr.
 
+![Aperçu](preview.png)
+
 ## 🚀 Installation
 
 1. Clonez ce dépôt ou téléchargez-le en tant que ZIP

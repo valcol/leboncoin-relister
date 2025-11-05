@@ -40,7 +40,25 @@ export default {
         { src: 'src/popup.html', dest: 'dist' },
         { src: 'src/popup.css', dest: 'dist' },
         { src: 'src/popup.js', dest: 'dist' },
-        { src: 'manifest.json', dest: 'dist' },
+        {
+          src: 'manifest.json',
+          dest: 'dist',
+          transform: (contents) => {
+            const manifest = JSON.parse(contents.toString());
+            // Remove 'dist/' prefix from paths when manifest is in dist folder
+            if (manifest.action?.default_popup) {
+              manifest.action.default_popup = manifest.action.default_popup.replace(/^dist\//, '');
+            }
+            if (manifest.content_scripts) {
+              manifest.content_scripts.forEach(script => {
+                if (script.js) {
+                  script.js = script.js.map(path => path.replace(/^dist\//, ''));
+                }
+              });
+            }
+            return JSON.stringify(manifest, null, 2);
+          }
+        },
         { src: 'icons', dest: 'dist' }
       ]
     })
