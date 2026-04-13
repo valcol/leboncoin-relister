@@ -17,23 +17,24 @@ Installez directement depuis le [Chrome Web Store](https://chromewebstore.google
 ### Option 2 : Depuis les sources
 
 1. Clonez ce dépôt ou téléchargez-le en tant que ZIP
-2. Ouvrez Chrome et allez sur `chrome://extensions`
-3. Activez le "Mode développeur" en haut à droite
-4. Cliquez sur "Charger l'extension non empaquetée" et sélectionnez le dossier de l'extension
-5. Rendez-vous sur votre [tableau de bord Leboncoin](https://www.leboncoin.fr/compte/part/mes-annonces)
+2. Exécutez `npm install && npm run build`
+3. Ouvrez Chrome et allez sur `chrome://extensions`
+4. Activez le "Mode développeur" en haut à droite
+5. Cliquez sur "Charger l'extension non empaquetée" et sélectionnez le dossier `dist/`
+6. Rendez-vous sur votre [tableau de bord Leboncoin](https://www.leboncoin.fr/compte/part/mes-annonces)
 
 ## 📖 Utilisation
 
 1. Rendez-vous sur votre [tableau de bord Leboncoin](https://www.leboncoin.fr/compte/part/mes-annonces)
 2. Cliquez sur le bouton **✨ Republier** à côté de n'importe quelle annonce
-3. Modifiez le prix si nécessaire (ou conservez le prix actuel)
-4. Confirmez l'action
+3. Modifiez le titre, la description et/ou le prix dans la modale
+4. Cliquez sur **✨ Republier** pour confirmer
 5. Attendez que le processus de republication automatique se termine
 
 L'extension va :
 - ✅ Supprimer votre ancienne annonce
 - ✅ Créer une nouvelle annonce avec le même contenu
-- ✅ Mettre à jour le prix si vous l'avez modifié
+- ✅ Appliquer vos modifications au titre, à la description ou au prix
 - ✅ Actualiser le tableau de bord pour afficher la nouvelle annonce
 
 ## 📝 Licence

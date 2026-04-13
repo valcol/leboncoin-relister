@@ -17,23 +17,24 @@ Install directly from the [Chrome Web Store](https://chromewebstore.google.com/d
 ### Option 2: From Source
 
 1. Clone this repository or download it as a ZIP
-2. Open Chrome and go to `chrome://extensions`
-3. Enable "Developer mode" in the top right
-4. Click "Load unpacked" and select the extension folder
-5. Go to your [Leboncoin dashboard](https://www.leboncoin.fr/compte/part/mes-annonces)
+2. Run `npm install && npm run build`
+3. Open Chrome and go to `chrome://extensions`
+4. Enable "Developer mode" in the top right
+5. Click "Load unpacked" and select the `dist/` folder
+6. Go to your [Leboncoin dashboard](https://www.leboncoin.fr/compte/part/mes-annonces)
 
 ## 📖 Usage
 
 1. Go to your [Leboncoin dashboard](https://www.leboncoin.fr/compte/part/mes-annonces)
 2. Click the **✨ Republish** button next to any ad
-3. Update the price if needed (or keep the current price)
-4. Confirm the action
+3. Edit the title, description, and/or price in the modal
+4. Click **✨ Republier** to confirm
 5. Wait for the automatic republishing process to complete
 
 The extension will:
 - ✅ Delete your old ad
 - ✅ Create a new ad with the same content
-- ✅ Update the price if you modified it
+- ✅ Apply any edits to the title, description, or price
 - ✅ Refresh the dashboard to display the new ad
 
 ## 📝 License
