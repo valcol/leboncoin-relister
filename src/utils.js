@@ -24,6 +24,8 @@ export const getCookie = (name) => {
 
 export const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+export const jitteredDelay = (min, max) => delay(min + Math.random() * (max - min));
+
 export const debounce = (func, wait) => {
   let timeout;
 

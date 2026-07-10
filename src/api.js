@@ -4,7 +4,7 @@
 
 import { captureError, captureMessage, LEVELS } from './logger.js';
 import { getAuthToken, buildExperimentHeader, buildHeaders } from './auth.js';
-import { delay } from './utils.js';
+import { delay, jitteredDelay } from './utils.js';
 import { CONFIG } from './config.js';
 
 // ============================================================================
@@ -14,7 +14,7 @@ import { CONFIG } from './config.js';
 export const cleanPayload = (adData) => {
   const payload = {
     ...adData,
-    tracking_dd: `app:${Math.floor(Math.random() * 1000)}.${Math.floor(Math.random() * 10)}`,
+    tracking_dd: CONFIG.tracking.dd,
     price_cents: typeof adData.price === 'number'
       ? Math.round(adData.price * 100).toString()
       : adData.price_cents
@@ -29,6 +29,8 @@ const handleApiResponse = async (response, action) => {
   if (!response.ok) {
     const errorText = await response.text();
     const error = new Error(`Erreur ${action}: ${response.status} ${errorText}`);
+
+    error.status = response.status;
 
     captureError(error, { status: response.status, action });
     throw error;
@@ -182,7 +184,10 @@ export const createAdViaAPI = async (adData) => {
   const experimentHeader = buildExperimentHeader();
   const payload = cleanPayload(adData);
 
+  await jitteredDelay(CONFIG.throttle.betweenStepsMinMs, CONFIG.throttle.betweenStepsMaxMs);
   const { ad_id, action_id } = await createAdDraft(payload, authToken, experimentHeader);
+
+  await jitteredDelay(CONFIG.throttle.betweenStepsMinMs, CONFIG.throttle.betweenStepsMaxMs);
   const pricing_id = await fetchPricingId(ad_id, action_id, payload.category_id, authToken, experimentHeader);
 
   await publishAd(ad_id, action_id, payload.ad_type, pricing_id, authToken, experimentHeader);

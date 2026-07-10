@@ -20,6 +20,16 @@ export const CONFIG = {
     fadeOut: 300,
     retryAttempts: [1000, 2000, 3000, 5000]
   },
+  throttle: {
+    betweenStepsMinMs: 400,
+    betweenStepsMaxMs: 1200,
+    cooldownMs: 8000,
+    backoffBaseMs: 20000,
+    backoffMaxMs: 120000
+  },
+  tracking: {
+    dd: 'app:308.2'
+  },
   api: {
     baseUrl: 'https://api.leboncoin.fr',
     adData: (listId) => `https://api.leboncoin.fr/api/pintad/v1/public/manual/classified/${listId}`,

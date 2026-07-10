@@ -116,6 +116,15 @@ export const NotificationManager = {
         <div style="font-size: 12px; color: #a1a1aa;">${escapeHtml(message)}</div>
       `
     });
+  },
+
+  info(message) {
+    return this.create({
+      id: 'lbc-info',
+      borderColor: '#6b7280',
+      color: '#e4e4e7',
+      content: escapeHtml(message)
+    });
   }
 };
 

@@ -45,7 +45,35 @@ const confirmRepublish = (adData) => confirm(
 // REPUBLISH WORKFLOW
 // ============================================================================
 
+// Throttle state (module-scoped, persists for the page session across SPA nav)
+let isRepublishing = false;
+let nextAllowedAt = 0;
+let consecutiveFailures = 0;
+
 const handleRepublishClick = async (listId) => {
+  if (isRepublishing) {
+    const busyNotif = NotificationManager.show(
+      NotificationManager.info('Une republication est déjà en cours, patientez…')
+    );
+
+    NotificationManager.fadeOut(busyNotif, CONFIG.delays.notificationFade);
+
+    return;
+  }
+
+  const waitMs = nextAllowedAt - Date.now();
+
+  if (waitMs > 0) {
+    const cooldownNotif = NotificationManager.show(
+      NotificationManager.info(`Patientez encore ${Math.ceil(waitMs / 1000)} s avant de republier une autre annonce.`)
+    );
+
+    NotificationManager.fadeOut(cooldownNotif, CONFIG.delays.notificationFade);
+
+    return;
+  }
+
+  isRepublishing = true;
   console.log(`Republication de l'annonce ${listId}...`);
   captureMessage('Starting republish process', LEVELS.info);
 
@@ -87,6 +115,9 @@ const handleRepublishClick = async (listId) => {
 
     NotificationManager.fadeOut(successNotif, CONFIG.delays.notificationFade);
 
+    consecutiveFailures = 0;
+    nextAllowedAt = Date.now() + CONFIG.throttle.cooldownMs + Math.random() * CONFIG.throttle.betweenStepsMaxMs;
+
     captureMessage('Republish completed successfully', LEVELS.info);
   } catch (error) {
     console.error('Erreur de republication:', error);
@@ -95,11 +126,21 @@ const handleRepublishClick = async (listId) => {
       step: 'republish_process'
     });
 
+    consecutiveFailures += 1;
+    const backoffMs = Math.min(
+      CONFIG.throttle.backoffBaseMs * (2 ** (consecutiveFailures - 1)),
+      CONFIG.throttle.backoffMaxMs
+    );
+
+    nextAllowedAt = Date.now() + (error.status === 403 ? CONFIG.throttle.backoffMaxMs : backoffMs);
+
     NotificationManager.removeMultiple('lbc-loading', 'lbc-deleting', 'lbc-publishing');
 
     const errorNotif = NotificationManager.show(NotificationManager.error(error.message));
 
     setTimeout(() => errorNotif.remove(), CONFIG.delays.notificationError);
+  } finally {
+    isRepublishing = false;
   }
 };
 
