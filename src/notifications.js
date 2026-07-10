@@ -101,7 +101,7 @@ export const NotificationManager = {
     });
   },
 
-  draftSuccess() {
+  draftSuccess(draftUrl) {
     return this.create({
       id: 'lbc-draft-success',
       borderColor: '#10b981',
@@ -109,7 +109,8 @@ export const NotificationManager = {
       content: `
         <div style="font-weight: 600; margin-bottom: 6px;">Brouillon créé</div>
         <div style="font-size: 12px; color: #a1a1aa;">
-          Brouillon créé avec succès, rafraîchissez la page.
+          L'annonce originale reste en ligne.
+          <a href="${escapeHtml(draftUrl)}" target="_blank" style="color: #ff8a4a; text-decoration: underline;">Ouvrir le brouillon</a>
         </div>
       `
     });

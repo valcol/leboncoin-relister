@@ -41,12 +41,20 @@ const confirmRepublish = (adData) => confirm(
     'Lancer la republication automatique?'
 );
 
-const confirmDraft = (adData) => confirm(
-  '📝 Créer un brouillon de:\n\n' +
+const confirmModifyDraft = (adData) => confirm(
+  '📝 Modifier avant republication:\n\n' +
     `📋 ${adData.subject}\n` +
     `💰 ${adData.price} €\n` +
     `📁 ${adData.category_name}\n\n` +
-    'L\'annonce originale restera en ligne. Continuer?'
+    'L\'ancienne annonce sera supprimée et vous serez redirigé vers le brouillon. Continuer?'
+);
+
+const confirmClone = (adData) => confirm(
+  '🐑 Cloner en brouillon:\n\n' +
+    `📋 ${adData.subject}\n` +
+    `💰 ${adData.price} €\n` +
+    `📁 ${adData.category_name}\n\n` +
+    'Un brouillon sera créé, l\'annonce originale restera en ligne. Continuer?'
 );
 
 // ============================================================================
@@ -164,39 +172,75 @@ const republishWorkflow = async (listId) => {
   return true;
 };
 
-const draftWorkflow = async (listId) => {
-  console.log(`Création d'un brouillon pour l'annonce ${listId}...`);
-  captureMessage('Starting draft process', LEVELS.info);
+const modifyDraftWorkflow = async (listId) => {
+  console.log(`Création d'un brouillon (modification) pour l'annonce ${listId}...`);
+  captureMessage('Starting modify-draft process', LEVELS.info);
 
   const loadingNotif = NotificationManager.show(NotificationManager.loading('Chargement des données...'));
   const adData = await fetchAdData(listId);
 
   loadingNotif.remove();
 
-  if (!confirmDraft(adData)) {
-    console.log('Création du brouillon annulée');
-    captureMessage('Draft cancelled by user confirmation', LEVELS.info);
+  if (!confirmModifyDraft(adData)) {
+    console.log('Modification annulée');
+    captureMessage('Modify-draft cancelled by user confirmation', LEVELS.info);
 
     return false;
   }
 
   const draftingNotif = NotificationManager.show(NotificationManager.creatingDraft());
+  const draftId = await createDraftViaAPI(adData);
 
-  await createDraftViaAPI(adData);
   draftingNotif.remove();
 
-  const successNotif = NotificationManager.show(NotificationManager.draftSuccess());
+  const deletingNotif = NotificationManager.show(NotificationManager.deleting());
+
+  await deleteAd(listId);
+  deletingNotif.remove();
+
+  captureMessage('Modify-draft completed successfully', LEVELS.info);
+
+  // Navigate to the draft finalize page (leaves the dashboard)
+  window.location.assign(CONFIG.pages.draftEdit(draftId));
+
+  return true;
+};
+
+const cloneWorkflow = async (listId) => {
+  console.log(`Clonage en brouillon de l'annonce ${listId}...`);
+  captureMessage('Starting clone process', LEVELS.info);
+
+  const loadingNotif = NotificationManager.show(NotificationManager.loading('Chargement des données...'));
+  const adData = await fetchAdData(listId);
+
+  loadingNotif.remove();
+
+  if (!confirmClone(adData)) {
+    console.log('Clonage annulé');
+    captureMessage('Clone cancelled by user confirmation', LEVELS.info);
+
+    return false;
+  }
+
+  const draftingNotif = NotificationManager.show(NotificationManager.creatingDraft());
+  const draftId = await createDraftViaAPI(adData);
+
+  draftingNotif.remove();
+
+  const successNotif = NotificationManager.show(NotificationManager.draftSuccess(CONFIG.pages.draftEdit(draftId)));
 
   NotificationManager.fadeOut(successNotif, CONFIG.delays.notificationFade);
 
-  captureMessage('Draft completed successfully', LEVELS.info);
+  captureMessage('Clone completed successfully', LEVELS.info);
 
   return true;
 };
 
 const handleRepublishClick = (listId) => runThrottled('handleRepublishClick', () => republishWorkflow(listId));
 
-const handleDraftClick = (listId) => runThrottled('handleDraftClick', () => draftWorkflow(listId));
+const handleModifyDraftClick = (listId) => runThrottled('handleModifyDraftClick', () => modifyDraftWorkflow(listId));
+
+const handleCloneClick = (listId) => runThrottled('handleCloneClick', () => cloneWorkflow(listId));
 
 // ============================================================================
 // BUTTON INJECTION
@@ -255,16 +299,25 @@ const createRepublishButton = (listId) => {
   `;
   menu.innerHTML = `
     <button
-      data-lbc-draft-btn
+      data-lbc-modify-draft-btn
       type="button"
       role="menuitem"
       style="display: block; width: 100%; padding: 10px 14px; background: none; border: none; text-align: left; font-size: 14px; color: #1a1a1a; cursor: pointer; transition: background 0.15s;"
       onmouseover="this.style.background='#ffe9dc'"
       onmouseout="this.style.background='none'"
-      title="Créer uniquement un brouillon, l'annonce reste en ligne">📝 Créer un brouillon</button>
+      title="Crée un brouillon, supprime l'annonce et ouvre le brouillon pour édition">📝 Modifier avant republication (brouillon)</button>
+    <button
+      data-lbc-clone-btn
+      type="button"
+      role="menuitem"
+      style="display: block; width: 100%; padding: 10px 14px; background: none; border: none; text-align: left; font-size: 14px; color: #1a1a1a; cursor: pointer; transition: background 0.15s;"
+      onmouseover="this.style.background='#ffe9dc'"
+      onmouseout="this.style.background='none'"
+      title="Crée un brouillon, l'annonce originale reste en ligne">🐑 Cloner (brouillon)</button>
   `;
 
-  const draftButton = menu.querySelector('[data-lbc-draft-btn]');
+  const modifyDraftButton = menu.querySelector('[data-lbc-modify-draft-btn]');
+  const cloneButton = menu.querySelector('[data-lbc-clone-btn]');
 
   const closeMenu = () => {
     menu.remove();
@@ -306,11 +359,18 @@ const createRepublishButton = (listId) => {
 
   republishButton.addEventListener('click', () => handleRepublishClick(listId));
 
-  draftButton.addEventListener('click', (event) => {
+  modifyDraftButton.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
     closeMenu();
-    handleDraftClick(listId);
+    handleModifyDraftClick(listId);
+  });
+
+  cloneButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeMenu();
+    handleCloneClick(listId);
   });
 
   return wrapper;

@@ -51,6 +51,9 @@ export const CONFIG = {
     options: 'https://www.leboncoin.fr/deposer-une-annonce/options',
     deletion: 'https://www.leboncoin.fr/compte/mes-annonces/suppression'
   },
+  pages: {
+    draftEdit: (draftId) => `https://www.leboncoin.fr/brouillon/${draftId}/finaliser`
+  },
   readOnlyFields: [
     'list_id', 'ad_id', 'first_publication_date',
     'index_date', 'status', 'url', 'price'
