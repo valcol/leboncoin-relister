@@ -25,7 +25,7 @@ export const CONFIG = {
     betweenStepsMaxMs: 1200,
     cooldownMs: 8000,
     backoffBaseMs: 20000,
-    backoffMaxMs: 120000
+    backoffMaxMs: 30000
   },
   tracking: {
     dd: 'app:308.2'

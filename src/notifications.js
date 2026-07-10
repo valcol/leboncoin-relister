@@ -109,7 +109,7 @@ export const NotificationManager = {
       content: `
         <div style="font-weight: 600; margin-bottom: 6px;">Brouillon créé</div>
         <div style="font-size: 12px; color: #a1a1aa;">
-          Retrouvez-le via “Déposer une annonce” sur leboncoin.
+          Brouillon créé avec succès, rafraîchissez la page.
         </div>
       `
     });
