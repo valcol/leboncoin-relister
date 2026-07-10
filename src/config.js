@@ -11,6 +11,8 @@ export const CONFIG = {
     republishButton: '[data-lbc-republish-btn]',
     adListContainer: '[data-test-id="ad-list-container"]'
   },
+  // Republishing a paused ad makes no sense, so skip ads showing this banner text
+  pausedAdText: 'mise en pause',
   delays: {
     buttonInjection: 500,
     pageReload: 3000,

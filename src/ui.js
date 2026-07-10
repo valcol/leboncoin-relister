@@ -376,8 +376,16 @@ const createRepublishButton = (listId) => {
   return wrapper;
 };
 
+const isAdPaused = (adItem) =>
+  adItem.textContent?.toLowerCase().includes(CONFIG.pausedAdText);
+
 const shouldInjectButton = (adItem) => {
   if (adItem.querySelector(CONFIG.selectors.republishButton)) {
+    return false;
+  }
+
+  // Paused ads can't be republished, skip them
+  if (isAdPaused(adItem)) {
     return false;
   }
 
