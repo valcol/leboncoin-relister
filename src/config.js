@@ -35,6 +35,7 @@ export const CONFIG = {
     adData: (listId) => `https://api.leboncoin.fr/api/pintad/v1/public/manual/classified/${listId}`,
     deleteAd: 'https://api.leboncoin.fr/api/pintad/v1/public/manual/delete/ads',
     createAd: 'https://api.leboncoin.fr/api/adsubmit/v2/classifieds?with_variation=true',
+    createDraft: 'https://api.leboncoin.fr/api/ad-draft/v1/draft',
     pricing: 'https://api.leboncoin.fr/api/options/v4/pricing/classifieds',
     submit: 'https://api.leboncoin.fr/api/services/v4/submit'
   },

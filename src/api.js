@@ -173,6 +173,56 @@ const publishAd = async (adId, actionId, adType, pricingId, authToken, experimen
   console.log('✓ Annonce publiée');
 };
 
+// pintad returns attributes as [{key, value}, …]; the draft endpoint expects a flat map
+const normalizeAttributes = (attributes) => {
+  if (!Array.isArray(attributes)) {
+    return attributes || {};
+  }
+
+  return Object.fromEntries(attributes.map(({ key, value }) => [key, value]));
+};
+
+export const createDraftViaAPI = async (adData) => {
+  console.log('Création du brouillon via l\'API...');
+  captureMessage('Creating draft via API', LEVELS.info, {
+    category: adData.category_name,
+    price: adData.price
+  });
+
+  const authToken = getAuthToken();
+  const experimentHeader = buildExperimentHeader();
+  const cleaned = cleanPayload(adData);
+  const payload = {
+    ...cleaned,
+    attributes: {
+      ...normalizeAttributes(cleaned.attributes),
+      ad_submission_id: crypto.randomUUID(),
+      ad_submission_source: 'insertion-dynamic-v1'
+    }
+  };
+
+  await jitteredDelay(CONFIG.throttle.betweenStepsMinMs, CONFIG.throttle.betweenStepsMaxMs);
+
+  const response = await fetch(CONFIG.api.createDraft, {
+    method: 'POST',
+    headers: buildHeaders(authToken, experimentHeader, CONFIG.referers.deposit),
+    credentials: 'include',
+    body: JSON.stringify(payload)
+  });
+
+  await handleApiResponse(response, 'createDraftViaAPI');
+  const data = await response.json();
+
+  if (!data.draft_id) {
+    throw new Error('Pas de draft_id dans la réponse');
+  }
+
+  console.log('✓ Brouillon créé');
+  captureMessage('Successfully created draft', LEVELS.info);
+
+  return data.draft_id;
+};
+
 export const createAdViaAPI = async (adData) => {
   console.log('Création de l\'annonce via l\'API...');
   captureMessage('Creating ad via API', LEVELS.info, {

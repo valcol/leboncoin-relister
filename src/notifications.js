@@ -92,6 +92,29 @@ export const NotificationManager = {
     });
   },
 
+  creatingDraft() {
+    return this.create({
+      id: 'lbc-drafting',
+      borderColor: '#ff8a4a',
+      color: '#e4e4e7',
+      content: 'Création du brouillon...'
+    });
+  },
+
+  draftSuccess() {
+    return this.create({
+      id: 'lbc-draft-success',
+      borderColor: '#10b981',
+      color: '#e4e4e7',
+      content: `
+        <div style="font-weight: 600; margin-bottom: 6px;">Brouillon créé</div>
+        <div style="font-size: 12px; color: #a1a1aa;">
+          Retrouvez-le via “Déposer une annonce” sur leboncoin.
+        </div>
+      `
+    });
+  },
+
   success(adId) {
     return this.create({
       id: 'lbc-success',
