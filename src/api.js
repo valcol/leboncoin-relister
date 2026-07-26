@@ -98,6 +98,23 @@ const createAdDraft = async (payload, authToken, experimentHeader) => {
     body: JSON.stringify(payload)
   });
 
+  // A 400 here means the direct-publish endpoint rejected the payload, usually
+  // because the ad predates fields that are now mandatory and can't be filled
+  // automatically. The draft editor lets the user complete them by hand.
+  if (response.status === 400) {
+    const errorText = await response.text();
+    const error = new Error(
+      'Cette annonce est trop ancienne pour être republiée directement : '
+      + 'des champs désormais obligatoires sont manquants. '
+      + 'Utilisez « Modifier avant republication (brouillon) » pour compléter '
+      + 'les champs manquants, puis republiez.'
+    );
+
+    error.status = 400;
+    captureError(error, { status: 400, action: 'createAdDraft', errorText });
+    throw error;
+  }
+
   await handleApiResponse(response, 'createAdDraft');
   const data = await response.json();
 

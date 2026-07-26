@@ -25,7 +25,7 @@ export const CONFIG = {
   throttle: {
     betweenStepsMinMs: 400,
     betweenStepsMaxMs: 1200,
-    cooldownMs: 8000,
+    cooldownMs: 2000,
     backoffBaseMs: 20000,
     backoffMaxMs: 30000
   },
