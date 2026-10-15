@@ -11,6 +11,23 @@ import { CONFIG } from './config.js';
 // DATA PROCESSING
 // ============================================================================
 
+// pintad returns attributes as [{key, value}, …], but a flat map is handled too
+const stripReadOnlyAttributes = (attributes) => {
+  if (Array.isArray(attributes)) {
+    return attributes.filter(({ key }) => !CONFIG.readOnlyAttributes.includes(key));
+  }
+
+  if (attributes && typeof attributes === 'object') {
+    const stripped = { ...attributes };
+
+    CONFIG.readOnlyAttributes.forEach(key => delete stripped[key]);
+
+    return stripped;
+  }
+
+  return attributes;
+};
+
 export const cleanPayload = (adData) => {
   const payload = {
     ...adData,
@@ -21,6 +38,10 @@ export const cleanPayload = (adData) => {
   };
 
   CONFIG.readOnlyFields.forEach(field => delete payload[field]);
+
+  if ('attributes' in payload) {
+    payload.attributes = stripReadOnlyAttributes(payload.attributes);
+  }
 
   return payload;
 };
