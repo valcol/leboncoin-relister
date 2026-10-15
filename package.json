@@ -7,7 +7,7 @@
     "build": "cross-env NODE_ENV=production rollup -c",
     "build:dev": "cross-env NODE_ENV=development rollup -c",
     "dev": "cross-env NODE_ENV=development rollup -c --watch",
-    "package": "zip -r extension.zip dist",
+    "package": "cd dist && zip -r ../extension.zip . -x \"*.map\"",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "test": "jest",

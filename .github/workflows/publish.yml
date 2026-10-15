@@ -1,0 +1,43 @@
+name: Publish to Chrome Web Store
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    # Prereleases are for testing; only full releases go to the store
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # The store rejects re-uploads of an existing version, so fail early on mismatch
+      - name: Check release tag matches versions
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          manifest=$(node -p "require('./manifest.json').version")
+          pkg=$(node -p "require('./package.json').version")
+          if [ "$version" != "$manifest" ] || [ "$version" != "$pkg" ]; then
+            echo "::error::Tag $TAG does not match manifest.json ($manifest) / package.json ($pkg)"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm run package
+
+      - name: Upload and publish
+        run: npx chrome-webstore-upload-cli@3 upload --source extension.zip --auto-publish
+        env:
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
