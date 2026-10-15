@@ -59,6 +59,8 @@ export const CONFIG = {
   readOnlyFields: [
     'list_id', 'ad_id', 'first_publication_date',
     'index_date', 'status', 'url', 'price'
-  ]
+  ],
+  // Attributes tied to the original ad; resending them gets the new ad rejected (403)
+  readOnlyAttributes: ['draft_id']
 };
 
