@@ -22,6 +22,8 @@ export const getCookie = (name) => {
   return match ? match[1] : null;
 };
 
+export const pluralize = (count, word) => (count > 1 ? `${word}s` : word);
+
 export const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const jitteredDelay = (min, max) => delay(min + Math.random() * (max - min));

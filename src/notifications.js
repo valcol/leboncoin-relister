@@ -12,15 +12,11 @@ export const NotificationManager = {
 
     notification.id = config.id;
     notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
       background: #2b2d31;
       color: ${config.color || '#e4e4e7'};
       padding: 12px 16px;
       border-radius: 6px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-      z-index: 999999;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       font-size: 13px;
       font-weight: 500;
@@ -36,13 +32,45 @@ export const NotificationManager = {
     notification.innerHTML = `
       <img src="${iconImage}" width="20" height="20" style="flex-shrink: 0; margin-top: 1px; border-radius: 4px;" alt="LBC" />
       <div style="flex: 1;">${config.content}</div>
+      ${config.dismissible ? `
+        <button
+          data-lbc-dismiss
+          type="button"
+          title="Fermer"
+          style="background: none; border: none; padding: 0; color: #a1a1aa; font-size: 16px; line-height: 1; cursor: pointer;">×</button>
+      ` : ''}
     `;
+
+    notification.querySelector('[data-lbc-dismiss]')?.addEventListener('click', () => notification.remove());
 
     return notification;
   },
 
+  // Notifications stack in a shared top-right column instead of overlapping
+  container() {
+    let container = document.getElementById('lbc-notifications');
+
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'lbc-notifications';
+      container.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+      `;
+      document.body.appendChild(container);
+    }
+
+    return container;
+  },
+
   show(notification) {
-    document.body.appendChild(notification);
+    this.container().appendChild(notification);
 
     return notification;
   },
@@ -125,6 +153,41 @@ export const NotificationManager = {
         <div style="font-weight: 600; margin-bottom: 6px;">Republication réussie</div>
         <div style="font-size: 12px; color: #a1a1aa;">
           Annonce #${escapeHtml(String(adId))} créée avec succès, rafraîchissez la page.
+        </div>
+      `
+    });
+  },
+
+  bulkProgress(current, total, title) {
+    return this.create({
+      id: 'lbc-bulk-progress',
+      borderColor: '#ff8a4a',
+      color: '#e4e4e7',
+      content: `
+        <div style="font-weight: 600; margin-bottom: 6px;">Republication ${current}/${total}...</div>
+        <div style="font-size: 12px; color: #a1a1aa;">${escapeHtml(title)}</div>
+      `
+    });
+  },
+
+  // drafts: [{ title, url }] linked so they can be opened; failedTitles: ads skipped with failureHint
+  bulkSummary({ title, drafts, failureHint, failedTitles, refreshHint }) {
+    const hasFailures = failedTitles.length > 0;
+    const list = (items) => `<ul style="margin: 4px 0; padding-left: 16px;">${items.join('')}</ul>`;
+
+    return this.create({
+      id: 'lbc-bulk-summary',
+      borderColor: hasFailures ? '#ec5a13' : '#10b981',
+      color: '#e4e4e7',
+      dismissible: true,
+      content: `
+        <div style="font-weight: 600; margin-bottom: 6px;">${escapeHtml(title)}</div>
+        <div style="font-size: 12px; color: #a1a1aa;">
+          ${drafts.length > 0 ? list(drafts.map(draft => `
+            <li><a href="${escapeHtml(draft.url)}" target="_blank" style="color: #ff8a4a; text-decoration: underline;">${escapeHtml(draft.title)}</a></li>
+          `)) : ''}
+          ${hasFailures ? `${escapeHtml(failureHint)}${list(failedTitles.map(failedTitle => `<li>${escapeHtml(failedTitle)}</li>`))}` : ''}
+          ${refreshHint ? 'Rafraîchissez la page.' : ''}
         </div>
       `
     });

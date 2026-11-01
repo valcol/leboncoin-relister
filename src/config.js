@@ -9,7 +9,14 @@ export const CONFIG = {
     adLink: 'a[href*="/ad/"]',
     buttonContainer: '.mt-md.gap-md.flex.flex-wrap',
     republishButton: '[data-lbc-republish-btn]',
-    adListContainer: '[data-test-id="ad-list-container"]'
+    adListContainer: '[data-test-id="ad-list-container"]',
+    adTitle: 'p[title]',
+    selectedAdCheckbox: 'button[role="checkbox"][aria-checked="true"]',
+    // Selection toolbar ("Remontez votre annonce", "Pause"…), rendered twice: inline and as a sticky header
+    bulkActionBar: 'div.flex.w-full.justify-end > div.hidden.md\\:block',
+    // "Remontez votre annonce", matched by its icon rather than its text
+    bumpButton: 'button:has(> svg[data-title="SvgLargeArrowUp"])',
+    bulkRepublishButton: '[data-lbc-bulk-republish-btn]'
   },
   // Republishing a paused ad makes no sense, so skip ads showing this banner text
   pausedAdText: 'mise en pause',
@@ -23,9 +30,12 @@ export const CONFIG = {
     retryAttempts: [1000, 2000, 3000, 5000]
   },
   throttle: {
-    betweenStepsMinMs: 400,
-    betweenStepsMaxMs: 1200,
+    betweenStepsMinMs: 200,
+    betweenStepsMaxMs: 500,
     cooldownMs: 2000,
+    // Random pause between two ads of a bulk action
+    betweenAdsMinMs: 400,
+    betweenAdsMaxMs: 1200,
     backoffBaseMs: 20000,
     backoffMaxMs: 30000
   },
