@@ -41,11 +41,17 @@ const confirmRepublish = (adData) => confirm(
     'Lancer la republication automatique?'
 );
 
-const confirmBulk = (action, ads) => confirm(
-  `${action.confirmTitle} — ${ads.length} ${pluralize(ads.length, 'annonce')}:\n\n` +
-    ads.map(({ title }) => `📋 ${title}`).join('\n') + '\n\n' +
-    action.confirmNote
-);
+// Only the first titles are listed: with hundreds of ads the dialog would overflow the screen
+const confirmBulk = (action, ads) => {
+  const hiddenCount = ads.length - CONFIG.bulkConfirmMaxTitles;
+
+  return confirm(
+    `${action.confirmTitle} — ${ads.length} ${pluralize(ads.length, 'annonce')}:\n\n` +
+      ads.slice(0, CONFIG.bulkConfirmMaxTitles).map(({ title }) => `📋 ${title}`).join('\n') +
+      (hiddenCount > 0 ? `\n… et ${hiddenCount} ${pluralize(hiddenCount, 'autre')}` : '') + '\n\n' +
+      action.confirmNote
+  );
+};
 
 const confirmModifyDraft = (adData) => confirm(
   '📝 Modifier avant republication:\n\n' +
@@ -162,11 +168,18 @@ const deleteOldAd = async (listId) => {
   deletingNotif.remove();
 };
 
-const publishAndDelete = async (listId, adData) => {
+const publishNewAd = async (adData) => {
   const publishingNotif = NotificationManager.show(NotificationManager.publishing());
   const adId = await createAdViaAPI(adData);
 
   publishingNotif.remove();
+
+  return adId;
+};
+
+const publishAndDelete = async (listId, adData) => {
+  const adId = await publishNewAd(adData);
+
   await deleteOldAd(listId);
 
   return adId;
@@ -258,13 +271,14 @@ const cloneWorkflow = async (listId) => {
   return true;
 };
 
-// Bulk variants of the button's actions: the same per-ad steps, run one ad after the other
+// Bulk variants of the button's actions: the same per-ad steps, run one ad after the other.
+// create makes the new ad or draft, then the old ad is deleted if deletesAds is set
 const BULK_ACTIONS = {
   republish: {
     name: 'handleBulkRepublishClick',
     confirmTitle: '✅ Republier',
     confirmNote: 'Les prix actuels seront conservés et les anciennes annonces supprimées. Lancer la republication automatique?',
-    runOnAd: (listId, adData) => publishAndDelete(listId, adData),
+    create: publishNewAd,
     summaryTitle: (count) => `${count} ${pluralize(count, 'annonce')} ${pluralize(count, 'republiée')}`,
     failureHint: 'Champs obligatoires manquants, utilisez « Modifier avant republication (brouillon) » pour :',
     createsDrafts: false,
@@ -274,7 +288,7 @@ const BULK_ACTIONS = {
     name: 'handleBulkModifyDraftClick',
     confirmTitle: '📝 Modifier avant republication',
     confirmNote: 'Un brouillon sera créé pour chaque annonce, puis l\'annonce sera supprimée. Continuer?',
-    runOnAd: (listId, adData) => draftAndDelete(listId, adData),
+    create: createDraft,
     summaryTitle: (count) => `${count} ${pluralize(count, 'brouillon')} ${pluralize(count, 'créé')}`,
     failureHint: 'Brouillon refusé pour :',
     createsDrafts: true,
@@ -284,7 +298,7 @@ const BULK_ACTIONS = {
     name: 'handleBulkCloneClick',
     confirmTitle: '🐑 Cloner en brouillon',
     confirmNote: 'Un brouillon sera créé pour chaque annonce, les annonces originales resteront en ligne. Continuer?',
-    runOnAd: (_listId, adData) => createDraft(adData),
+    create: createDraft,
     summaryTitle: (count) => `${count} ${pluralize(count, 'brouillon')} ${pluralize(count, 'créé')}`,
     failureHint: 'Brouillon refusé pour :',
     createsDrafts: true,
@@ -292,7 +306,156 @@ const BULK_ACTIONS = {
   }
 };
 
-const bulkWorkflow = async (action, ads) => {
+// A bulk run over hundreds of ads can outlive the page: leboncoin sometimes reloads it mid-run.
+// The job is saved after every step (sessionStorage: survives reloads, scoped to the tab) so the
+// run can be resumed where it stopped
+const saveBulkJob = (job) => {
+  try {
+    sessionStorage.setItem(CONFIG.storage.bulkJob, JSON.stringify(job));
+  } catch (error) {
+    captureError(error, { action: 'saveBulkJob' });
+  }
+};
+
+const loadBulkJob = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(CONFIG.storage.bulkJob));
+  } catch (error) {
+    captureError(error, { action: 'loadBulkJob' });
+
+    return null;
+  }
+};
+
+const clearBulkJob = () => {
+  try {
+    sessionStorage.removeItem(CONFIG.storage.bulkJob);
+  } catch (error) {
+    captureError(error, { action: 'clearBulkJob' });
+  }
+};
+
+// Runs the job's ads from job.next on. job.current follows the ad in progress: stage 'creating'
+// once its new ad/draft is requested, 'created' (with resultId) once it exists
+const runBulkJob = async (job) => {
+  const action = BULK_ACTIONS[job.actionKey];
+  const total = job.ads.length;
+  let stopError = null;
+
+  NotificationManager.remove('lbc-bulk-resume');
+
+  while (job.next < total) {
+    const { listId, title } = job.ads[job.next];
+
+    NotificationManager.remove('lbc-bulk-progress');
+    NotificationManager.show(NotificationManager.bulkProgress(job.next + 1, total, title));
+
+    // Random pause between two ads, on top of the jitter between each API call
+    if (job.next > 0) {
+      await jitteredDelay(CONFIG.throttle.betweenAdsMinMs, CONFIG.throttle.betweenAdsMaxMs);
+    }
+
+    try {
+      if (job.current?.stage === 'creating') {
+        // The page was reloaded while its new ad/draft was being created: it may exist already,
+        // creating it again could duplicate it
+        job.interruptedTitles.push(title);
+      } else {
+        if (!job.current) {
+          const adData = await loadAdData(listId);
+
+          job.current = { stage: 'creating' };
+          saveBulkJob(job);
+
+          const resultId = await action.create(adData);
+
+          job.current = { stage: 'created', resultId };
+          saveBulkJob(job);
+        }
+
+        if (action.deletesAds) {
+          await deleteOldAd(listId);
+        }
+
+        job.done.push({ title, resultId: job.current.resultId });
+      }
+    } catch (error) {
+      // A 400 only concerns this ad (e.g. too old to republish directly). Anything else
+      // (auth, rate limit, network) would hit the remaining ads too, so stop there
+      if (error.status !== 400) {
+        // An HTTP error means the creation was refused, so the ad can be retried on resume
+        if (error.status && job.current?.stage === 'creating') {
+          job.current = null;
+        }
+
+        saveBulkJob(job);
+        stopError = error;
+        break;
+      }
+
+      job.failedTitles.push(title);
+    }
+
+    job.next += 1;
+    job.current = null;
+    saveBulkJob(job);
+  }
+
+  NotificationManager.remove('lbc-bulk-progress');
+
+  // Kept when interrupted, so a reload offers to resume it
+  if (!stopError) {
+    clearBulkJob();
+  }
+
+  const { done, failedTitles, interruptedTitles } = job;
+
+  // Shown even when interrupted, so the drafts already created stay reachable
+  if (done.length > 0 || failedTitles.length > 0 || interruptedTitles.length > 0) {
+    const drafts = action.createsDrafts
+      ? done.map(({ title, resultId }) => ({ title, url: CONFIG.pages.draftEdit(resultId) }))
+      : [];
+    const summaryNotif = NotificationManager.show(NotificationManager.bulkSummary({
+      title: action.summaryTitle(done.length),
+      drafts,
+      failureHint: action.failureHint,
+      failedTitles,
+      interruptedTitles,
+      refreshHint: action.deletesAds
+    }));
+
+    if (drafts.length === 0) {
+      NotificationManager.fadeOut(
+        summaryNotif,
+        failedTitles.length > 0 || interruptedTitles.length > 0
+          ? CONFIG.delays.notificationError
+          : CONFIG.delays.notificationFade
+      );
+    }
+  }
+
+  if (stopError) {
+    const interruptedError = new Error(
+      `Interrompu après ${job.next}/${total} ${pluralize(total, 'annonce')} (rechargez la page pour reprendre): ${stopError.message}`
+    );
+
+    interruptedError.status = stopError.status;
+    throw interruptedError;
+  }
+
+  captureMessage('Bulk process completed', LEVELS.info, {
+    action: action.name,
+    succeeded: done.length,
+    failed: failedTitles.length,
+    interrupted: interruptedTitles.length
+  });
+
+  return true;
+};
+
+const bulkWorkflow = async (actionKey, ads) => {
+  const action = BULK_ACTIONS[actionKey];
+
   if (ads.length === 0) {
     return false;
   }
@@ -307,76 +470,23 @@ const bulkWorkflow = async (action, ads) => {
     return false;
   }
 
-  const done = [];
-  const failedTitles = [];
-  let stopError = null;
+  return runBulkJob({ actionKey, ads, next: 0, current: null, done: [], failedTitles: [], interruptedTitles: [] });
+};
 
-  for (const [index, { listId, title }] of ads.entries()) {
-    NotificationManager.remove('lbc-bulk-progress');
-    NotificationManager.show(NotificationManager.bulkProgress(index + 1, ads.length, title));
+const resumeBulkWorkflow = async () => {
+  const job = loadBulkJob();
 
-    // Random pause between two ads, on top of the jitter between each API call
-    if (index > 0) {
-      await jitteredDelay(CONFIG.throttle.betweenAdsMinMs, CONFIG.throttle.betweenAdsMaxMs);
-    }
-
-    try {
-      const adData = await loadAdData(listId);
-      const resultId = await action.runOnAd(listId, adData);
-
-      done.push({ title, resultId });
-    } catch (error) {
-      // A 400 only concerns this ad (e.g. too old to republish directly). Anything else
-      // (auth, rate limit, network) would hit the remaining ads too, so stop there
-      if (error.status !== 400) {
-        stopError = error;
-        break;
-      }
-
-      failedTitles.push(title);
-    }
+  if (!job) {
+    return false;
   }
 
-  NotificationManager.remove('lbc-bulk-progress');
-
-  // Shown even when interrupted, so the drafts already created stay reachable
-  if (done.length > 0 || failedTitles.length > 0) {
-    const drafts = action.createsDrafts
-      ? done.map(({ title, resultId }) => ({ title, url: CONFIG.pages.draftEdit(resultId) }))
-      : [];
-    const summaryNotif = NotificationManager.show(NotificationManager.bulkSummary({
-      title: action.summaryTitle(done.length),
-      drafts,
-      failureHint: action.failureHint,
-      failedTitles,
-      refreshHint: action.deletesAds
-    }));
-
-    if (drafts.length === 0) {
-      NotificationManager.fadeOut(
-        summaryNotif,
-        failedTitles.length > 0 ? CONFIG.delays.notificationError : CONFIG.delays.notificationFade
-      );
-    }
-  }
-
-  if (stopError) {
-    const processedCount = done.length + failedTitles.length;
-    const interruptedError = new Error(
-      `Interrompu après ${processedCount}/${ads.length} ${pluralize(ads.length, 'annonce')}: ${stopError.message}`
-    );
-
-    interruptedError.status = stopError.status;
-    throw interruptedError;
-  }
-
-  captureMessage('Bulk process completed', LEVELS.info, {
-    action: action.name,
-    succeeded: done.length,
-    failed: failedTitles.length
+  captureMessage('Resuming bulk process', LEVELS.info, {
+    action: BULK_ACTIONS[job.actionKey].name,
+    next: job.next,
+    count: job.ads.length
   });
 
-  return true;
+  return runBulkJob(job);
 };
 
 const handleRepublishClick = (listId) => runThrottled('handleRepublishClick', () => republishWorkflow(listId));
@@ -385,7 +495,42 @@ const handleModifyDraftClick = (listId) => runThrottled('handleModifyDraftClick'
 
 const handleCloneClick = (listId) => runThrottled('handleCloneClick', () => cloneWorkflow(listId));
 
-const handleBulkClick = (action) => runThrottled(action.name, () => bulkWorkflow(action, getSelectedAds()));
+const handleBulkClick = (actionKey) => runThrottled(
+  BULK_ACTIONS[actionKey].name,
+  () => bulkWorkflow(actionKey, getSelectedAds())
+);
+
+// Checked once per page load: a job still saved means the page was reloaded before a bulk run ended
+let bulkResumeChecked = false;
+
+const offerBulkResume = () => {
+  if (bulkResumeChecked) {
+    return;
+  }
+
+  bulkResumeChecked = true;
+
+  const job = loadBulkJob();
+  const action = BULK_ACTIONS[job?.actionKey];
+
+  if (!action) {
+    return;
+  }
+
+  const resumeNotif = NotificationManager.show(NotificationManager.bulkResume(
+    `${action.confirmTitle} — ${job.next}/${job.ads.length} ${pluralize(job.ads.length, 'annonce')} ${pluralize(job.next, 'traitée')}`
+  ));
+
+  resumeNotif.querySelector('[data-lbc-resume]').addEventListener('click', () => {
+    resumeNotif.remove();
+    runThrottled(action.name, resumeBulkWorkflow);
+  });
+
+  resumeNotif.querySelector('[data-lbc-abandon]').addEventListener('click', () => {
+    resumeNotif.remove();
+    clearBulkJob();
+  });
+};
 
 // ============================================================================
 // BUTTON INJECTION
@@ -559,9 +704,9 @@ const createBulkRepublishButton = () => createActionButton({
   // Same spacing as the native toolbar buttons next to it
   className: 'mr-sm lg:mr-lg',
   title: 'Republier les annonces sélectionnées',
-  onRepublish: () => handleBulkClick(BULK_ACTIONS.republish),
-  onModifyDraft: () => handleBulkClick(BULK_ACTIONS.modifyDraft),
-  onClone: () => handleBulkClick(BULK_ACTIONS.clone)
+  onRepublish: () => handleBulkClick('republish'),
+  onModifyDraft: () => handleBulkClick('modifyDraft'),
+  onClone: () => handleBulkClick('clone')
 });
 
 // Disabled like the native toolbar buttons while nothing is selected
@@ -660,6 +805,11 @@ export const injectRepublishButtons = () => {
     });
 
     injectBulkRepublishButtons();
+
+    // Waits for the ad list, so the page is rendered before the offer is shown
+    if (adItems.length > 0) {
+      offerBulkResume();
+    }
 
     console.log(`✓ ${injectedCount} boutons injectés sur ${adItems.length} annonces`);
     if (injectedCount > 0) {

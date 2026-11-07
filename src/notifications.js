@@ -170,10 +170,35 @@ export const NotificationManager = {
     });
   },
 
-  // drafts: [{ title, url }] linked so they can be opened; failedTitles: ads skipped with failureHint
-  bulkSummary({ title, drafts, failureHint, failedTitles, refreshHint }) {
-    const hasFailures = failedTitles.length > 0;
-    const list = (items) => `<ul style="margin: 4px 0; padding-left: 16px;">${items.join('')}</ul>`;
+  // A bulk run left unfinished by a page reload, offered for resuming
+  bulkResume(title) {
+    return this.create({
+      id: 'lbc-bulk-resume',
+      borderColor: '#ff8a4a',
+      color: '#e4e4e7',
+      content: `
+        <div style="font-weight: 600; margin-bottom: 6px;">${escapeHtml(title)}</div>
+        <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 8px;">La page a été rechargée avant la fin.</div>
+        <div style="display: flex; gap: 8px;">
+          <button
+            data-lbc-resume
+            type="button"
+            style="background: #ec5a13; border: none; border-radius: 4px; padding: 4px 10px; color: white; font-size: 12px; font-weight: 600; cursor: pointer;">Reprendre</button>
+          <button
+            data-lbc-abandon
+            type="button"
+            style="background: none; border: 1px solid #52525b; border-radius: 4px; padding: 4px 10px; color: #a1a1aa; font-size: 12px; cursor: pointer;">Abandonner</button>
+        </div>
+      `
+    });
+  },
+
+  // drafts: [{ title, url }] linked so they can be opened; failedTitles: ads skipped with failureHint;
+  // interruptedTitles: ads a page reload cut off mid-creation, which may have been duplicated
+  bulkSummary({ title, drafts, failureHint, failedTitles, interruptedTitles, refreshHint }) {
+    const hasFailures = failedTitles.length > 0 || interruptedTitles.length > 0;
+    // Scrollable: a run over hundreds of ads would otherwise push the summary off-screen
+    const list = (items) => `<ul style="margin: 4px 0; padding-left: 16px; max-height: 160px; overflow-y: auto;">${items.join('')}</ul>`;
 
     return this.create({
       id: 'lbc-bulk-summary',
@@ -186,7 +211,8 @@ export const NotificationManager = {
           ${drafts.length > 0 ? list(drafts.map(draft => `
             <li><a href="${escapeHtml(draft.url)}" target="_blank" style="color: #ff8a4a; text-decoration: underline;">${escapeHtml(draft.title)}</a></li>
           `)) : ''}
-          ${hasFailures ? `${escapeHtml(failureHint)}${list(failedTitles.map(failedTitle => `<li>${escapeHtml(failedTitle)}</li>`))}` : ''}
+          ${failedTitles.length > 0 ? `${escapeHtml(failureHint)}${list(failedTitles.map(failedTitle => `<li>${escapeHtml(failedTitle)}</li>`))}` : ''}
+          ${interruptedTitles.length > 0 ? `Page rechargée pendant leur traitement, vérifiez qu'elles n'ont pas été dupliquées :${list(interruptedTitles.map(interruptedTitle => `<li>${escapeHtml(interruptedTitle)}</li>`))}` : ''}
           ${refreshHint ? 'Rafraîchissez la page.' : ''}
         </div>
       `
