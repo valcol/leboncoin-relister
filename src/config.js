@@ -20,6 +20,12 @@ export const CONFIG = {
   },
   // Republishing a paused ad makes no sense, so skip ads showing this banner text
   pausedAdText: 'mise en pause',
+  // Titles listed in the bulk confirm dialog, the others are only counted
+  bulkConfirmMaxTitles: 15,
+  storage: {
+    // sessionStorage key of the bulk run in progress, to resume it after a page reload
+    bulkJob: 'lbc-relister-bulk-job'
+  },
   delays: {
     buttonInjection: 500,
     pageReload: 3000,
