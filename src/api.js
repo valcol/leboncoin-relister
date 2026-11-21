@@ -11,6 +11,12 @@ import { CONFIG } from './config.js';
 // DATA PROCESSING
 // ============================================================================
 
+const readPriceCents = (value) => {
+  const cents = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+
+  return Number.isSafeInteger(cents) && cents >= 0 ? cents : undefined;
+};
+
 // pintad returns attributes as [{key, value}, …], but a flat map is handled too
 const stripReadOnlyAttributes = (attributes) => {
   if (Array.isArray(attributes)) {
@@ -29,12 +35,16 @@ const stripReadOnlyAttributes = (attributes) => {
 };
 
 export const cleanPayload = (adData) => {
+  const originalPriceCents = readPriceCents(adData.price_cents);
+  const priceUsesOriginalCents = originalPriceCents !== undefined &&
+    (typeof adData.price !== 'number' || adData.price === originalPriceCents / 100);
+  const priceCents = !priceUsesOriginalCents && typeof adData.price === 'number'
+    ? Math.round(adData.price * 100).toString()
+    : originalPriceCents?.toString() ?? adData.price_cents;
   const payload = {
     ...adData,
     tracking_dd: CONFIG.tracking.dd,
-    price_cents: typeof adData.price === 'number'
-      ? Math.round(adData.price * 100).toString()
-      : adData.price_cents
+    price_cents: priceCents
   };
 
   CONFIG.readOnlyFields.forEach(field => delete payload[field]);
@@ -81,10 +91,12 @@ export const fetchAdData = async (listId) => {
 
   await handleApiResponse(response, 'fetchAdData');
   const data = await response.json();
+  const priceCents = readPriceCents(data.price_cents);
 
   console.log('✓ Données d\'annonce récupérées');
 
-  return data;
+  // The price in euros can be rounded even when the exact cents are available.
+  return priceCents === undefined ? data : { ...data, price: priceCents / 100 };
 };
 
 export const deleteAd = async (listId) => {
