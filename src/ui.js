@@ -20,14 +20,23 @@ const promptForNewPrice = (currentPrice) => {
     return null;
   }
 
-  if (input.trim() === '') {
+  const price = input.trim().replace(',', '.');
+
+  if (price === '') {
     return currentPrice;
   }
 
-  const newPrice = parseFloat(input.trim());
+  const newPrice = Number(price);
+  const [euros, decimals = ''] = price.split('.');
+  const enteredCents = Number(`${euros}${decimals.padEnd(2, '0')}`);
 
-  if (isNaN(newPrice) || newPrice <= 0) {
-    throw new Error('Prix invalide. Veuillez entrer un nombre positif.');
+  if (
+    !/^\+?(?:\d+|\d*\.\d{1,2})$/.test(price) ||
+    enteredCents <= 0 ||
+    !Number.isSafeInteger(enteredCents) ||
+    Math.round(newPrice * 100) !== enteredCents
+  ) {
+    throw new Error('Prix invalide. Saisissez un montant positif avec au plus deux décimales (ex. 1,75).');
   }
 
   return newPrice;
